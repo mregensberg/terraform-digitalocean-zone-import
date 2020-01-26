@@ -111,7 +111,9 @@ with open(TF_FILE, "w") as f:
         record_names = find_or_update(record_names, record)
         # ...and set the count
         iter = record_names[record['type']]
-        if record['type'] == 'MX':
+        if record['type'] == 'SOA':
+            continue
+        elif record['type'] == 'MX':
             f.write(format_rendered_record(render_mx(record), record['type'], iter))
         else:
             f.write(format_rendered_record(render_generic(record), record['type'], iter))
