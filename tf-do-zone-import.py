@@ -18,7 +18,7 @@ def render_mx(record):
         'name': '"'+record['name']+'"',
         'type': '"MX"',
         'priority': record['priority'],
-        'value': '"'+record['data']+'"',
+        'value': '"'+record['data']+'."',
         'ttl': record['ttl']
     }
     return(result)
@@ -32,6 +32,12 @@ def render_generic(record):
         'value': '"'+record['data']+'"',
         'ttl': record['ttl']
     }
+
+    # the DO api returns values with no trailing dot, but (correctly) complains
+    # if the resource value doesn't contain one. Would impact MX, CNAME and NS records.
+    if record['type'] in ['MX', 'CNAME', 'NS']:
+        result['value'] = '"'+record['data']+'."'
+
     return(result)
 
 # do a bunch of things so the generated resource names are
