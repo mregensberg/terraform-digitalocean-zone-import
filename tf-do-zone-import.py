@@ -104,7 +104,6 @@ if DEBUG:
 # gather some IDs as we go for the state importer
 ids = {}
 with open(TF_FILE, "w") as f:
-    numBytes = 0
     # add the resource domain
     f.write("resource \"digitalocean_domain\" \""+TF_ZONE_NAME+"\" {\n")
     f.write("  name = \""+ZONE_NAME+"\"\n")
