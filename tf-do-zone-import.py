@@ -125,6 +125,7 @@ with open(TF_FILE, "w") as f:
 f.close()
 
 with open(TF_STATE_FILE, "w") as f:
+    f.write('terraform import digitalocean_domain.'+TF_ZONE_NAME+' '+ZONE_NAME+'\n')
     for key, value in ids.items():
         f.write('terraform import digitalocean_record.'+value+' '+ZONE_NAME+','+str(key)+'\n')
 f.close()
