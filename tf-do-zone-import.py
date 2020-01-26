@@ -34,12 +34,27 @@ def render_generic(record):
     }
     return(result)
 
-def format_rendered_record(rendered_record):
-    result = 'resource "digitalocean_record" "XX" {\n'
+# do a bunch of things so the generated resource names are
+# (a) unique, (b) not too ugly and (c) consistent for the state import
+def format_rendered_record(rendered_record, type, iter):
+    result = 'resource "digitalocean_record" "'+build_resource_name(type, iter)+'" {\n'
     for key, value in rendered_record.items():
         result += '  '+key+' = '+str(value)+'\n'
     result += '}\n\n'
     return(result)
+
+def build_resource_name(type, iter):
+    r = TF_ZONE_NAME+'_'+type+str(iter)
+    return(r.lower())
+
+def find_or_update(record_names, record):
+    record_type = record['type']
+    if record_type in record_names:
+        record_names[record_type] += 1
+    else:
+        record_names[record_type] = 1
+    return(record_names)
+
 
 ##### main #############
 # check we have a domain
@@ -48,8 +63,9 @@ if len(sys.argv) < 2:
     sys.exit(1)
 else:
     ZONE_NAME = sys.argv[1]
-    TF_ZONE_NAME = ZONE_NAME.replace(".","_") 
+    TF_ZONE_NAME = ZONE_NAME.replace(".","_")
     TF_FILE = ZONE_NAME.replace(".","_") + ".tf"
+    TF_STATE_FILE = ZONE_NAME.replace(".","_") + "_import.sh"
 
 # barf some json if we need to
 if '-d' in sys.argv:
@@ -79,20 +95,34 @@ if DEBUG:
     pp.pprint(domain['domain_records'])
 
 # if we got this far, we might have a file.
+# gather some IDs as we go for the state importer
+ids = {}
 with open(TF_FILE, "w") as f:
+    numBytes = 0
     # add the resource domain
     f.write("resource \"digitalocean_domain\" \""+TF_ZONE_NAME+"\" {\n")
     f.write("  name = \""+ZONE_NAME+"\"\n")
     f.write("}\n\n")
 
+    record_names = {}
     for record in domain['domain_records']:
+        # resource names in tf need to be unique (within the module)
+        # so keep a record of type iterations
+        record_names = find_or_update(record_names, record)
+        # ...and set the count
+        iter = record_names[record['type']]
         if record['type'] == 'MX':
-            f.write(format_rendered_record(render_mx(record)))
+            f.write(format_rendered_record(render_mx(record), record['type'], iter))
         else:
-            f.write(format_rendered_record(render_generic(record)))
+            f.write(format_rendered_record(render_generic(record), record['type'], iter))
 
-        print(record)
-        print(">>>>> added >>>>>")
-
+        # used for the state import - we need the ID, along with the resource name
+        id = record['id']
+        resource_name = build_resource_name(record['type'], iter)
+        ids[id] = resource_name
 f.close()
-print("Wrote", TF_FILE)
+
+with open(TF_STATE_FILE, "w") as f:
+    for key, value in ids.items():
+        f.write('terraform import digitalocean_record.'+value+' '+ZONE_NAME+','+str(key)+'\n')
+f.close()
